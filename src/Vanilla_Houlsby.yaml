@@ -1,0 +1,4 @@
+config_name: vanilla_houlsbyconfig
+method: vanilla
+adapter_type: houlsby
+reduction_factor: 16
