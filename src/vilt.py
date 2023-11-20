@@ -314,22 +314,25 @@ class ViltContinualLearner(ContinualLearner):
         reduce_sim_img = None
         combine_prompt = None
         prompt_freq = None
+
+        task_idx = self.ordered_cl_tasks.index(task_key)
+        logger.info("task_idx is " + str(task_idx))
         if self.args.prompt == 1:
 
             # for combined prompt
-            combine_prompt = self.prompt(original_embedding, prompt_mask = None, cls_features = None, t_or_i= 2)
+            combine_prompt = self.prompt(original_embedding, prompt_mask = None, cls_features = None, t_or_i= 2, task_id=task_idx)
             combine_prompt = torch.mean(combine_prompt,dim=1)#.reshape(combine_prompt.shape[0],1,combine_prompt.shape[1])
 
             # for text prmopt
             attention_mask = torch.cat([torch.ones(attention_mask.shape[0],25).to(self.device),attention_mask],dim=1)
-            text_embedding = self.prompt(text_embedding, prompt_mask=None, cls_features = None, t_or_i=0)
+            text_embedding = self.prompt(text_embedding, prompt_mask=None, cls_features = None, t_or_i=0, task_id= task_idx)
             prompt_freq = text_embedding['prompt_idx'][0]
             reduce_sim = text_embedding['reduce_sim']
             text_embedding = text_embedding['prompted_embedding']
 
             # for image prompt
             image_mask = torch.cat([torch.ones(image_mask.shape[0],25).to(self.device),image_mask],dim=1)
-            image_embedding = self.prompt(image_embedding, prompt_mask=None, cls_features = None, t_or_i=1)
+            image_embedding = self.prompt(image_embedding, prompt_mask=None, cls_features = None, t_or_i=1, task_id = task_idx)
             reduce_sim_img = image_embedding['reduce_sim']
             image_embedding = image_embedding['prompted_embedding']
 

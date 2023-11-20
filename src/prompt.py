@@ -16,35 +16,52 @@ class Prompt(nn.Module):
         self.top_k = top_k
         self.batchwise_prompt = batchwise_prompt
 
+        self.text_prompts = {}
+        self.text_prompts['key'] = []
+        self.text_prompts['prompt'] = []
+        self.image_prompts = {}
+        self.image_prompts['key'] = []
+        self.image_prompts['prompt'] = []
+        self.combine_prompts = {}
+        self.combine_prompts['key'] = []
+        self.combine_prompts['prompt'] = []
+
         if self.prompt_pool:
             prompt_pool_shape = (pool_size, length, embed_dim)
             prompt_pool_combine_shape = (pool_size, 1, embed_dim)
             if prompt_init == 'zero':
-                self.text_prompt = nn.Parameter(torch.zeros(prompt_pool_shape))
-                self.image_prompt = nn.Parameter(torch.zeros(prompt_pool_shape))
-                self.combine_prompt = nn.Parameter(torch.zeros(prompt_pool_combine_shape))
+                text_prompt = nn.Parameter(torch.zeros(prompt_pool_shape))
+                image_prompt = nn.Parameter(torch.zeros(prompt_pool_shape))
+                combine_prompt = nn.Parameter(torch.zeros(prompt_pool_combine_shape))
             elif prompt_init == 'uniform':
-                self.text_prompt = nn.Parameter(torch.zeros(prompt_pool_shape))
-                self.image_prompt = nn.Parameter(torch.zeros(prompt_pool_shape))
-                self.combine_prompt = nn.Parameter(torch.zeros(prompt_pool_combine_shape))
-                nn.init.uniform_(self.text_prompt, -1, 1)
-                nn.init.uniform_(self.image_prompt, -1, 1)
-                nn.init.uniform_(self.combine_prompt, -1, 1)
+                text_prompt = nn.Parameter(torch.zeros(prompt_pool_shape))
+                image_prompt = nn.Parameter(torch.zeros(prompt_pool_shape))
+                combine_prompt = nn.Parameter(torch.zeros(prompt_pool_combine_shape))
+                nn.init.uniform_(text_prompt, -1, 1)
+                nn.init.uniform_(image_prompt, -1, 1)
+                nn.init.uniform_(combine_prompt, -1, 1)
+
+                self.image_prompts['prompt'].append(image_prompt)
+                self.text_prompts['prompt'].append(text_prompt)
+                self.combine_prompts['prompt'].append(combine_prompt)
         
         # if using learnable prompt keys
         if prompt_key:
             key_shape = (pool_size, embed_dim)
             if prompt_key_init == 'zero':
-                self.text_prompt_key = nn.Parameter(torch.zeros(key_shape))
-                self.image_prompt_key = nn.Parameter(torch.zeros(key_shape))
-                self.combine_prompt_key = nn.Parameter(torch.zeros(key_shape))
+                text_prompt_key = nn.Parameter(torch.zeros(key_shape))
+                image_prompt_key = nn.Parameter(torch.zeros(key_shape))
+                combine_prompt_key = nn.Parameter(torch.zeros(key_shape))
             elif prompt_key_init == 'uniform':
-                self.text_prompt_key = nn.Parameter(torch.zeros(key_shape))
-                self.image_prompt_key = nn.Parameter(torch.zeros(key_shape))
-                self.combine_prompt_key = nn.Parameter(torch.zeros(key_shape))
-                nn.init.uniform_(self.text_prompt_key, -1, 1)
-                nn.init.uniform_(self.image_prompt_key, -1, 1)
-                nn.init.uniform_(self.combine_prompt_key, -1, 1)
+                text_prompt_key = nn.Parameter(torch.zeros(key_shape))
+                image_prompt_key = nn.Parameter(torch.zeros(key_shape))
+                combine_prompt_key = nn.Parameter(torch.zeros(key_shape))
+                nn.init.uniform_(text_prompt_key, -1, 1)
+                nn.init.uniform_(image_prompt_key, -1, 1)
+                nn.init.uniform_(combine_prompt_key, -1, 1)
+                self.image_prompts['key'].append(image_prompt_key)
+                self.text_prompts['key'].append(text_prompt_key)
+                self.combine_prompts['key'].append(combine_prompt_key)
 
         else:
             # else use mean of prompt as key
@@ -58,25 +75,58 @@ class Prompt(nn.Module):
             prompt_mean = torch.mean(self.combine_prompt, dim=1)
             self.combine_prompt_key = prompt_mean
     
+    def update_pool(self):
+        prompt_pool_shape = (self.pool_size, self.length, self.embed_dim)
+        prompt_pool_combine_shape = (self.pool_size, 1, self.embed_dim)
+        text_prompt = nn.Parameter(torch.zeros(prompt_pool_shape))
+        image_prompt = nn.Parameter(torch.zeros(prompt_pool_shape))
+        combine_prompt = nn.Parameter(torch.zeros(prompt_pool_combine_shape))
+        nn.init.uniform_(text_prompt, -1, 1)
+        nn.init.uniform_(image_prompt, -1, 1)
+        nn.init.uniform_(combine_prompt, -1, 1)
+
+        self.image_prompts['prompt'].append(image_prompt)
+        self.text_prompts['prompt'].append(text_prompt)
+        self.combine_prompts['prompt'].append(combine_prompt)
+
+        key_shape = (self.pool_size, self.embed_dim)
+
+        text_prompt_key = nn.Parameter(torch.zeros(key_shape))
+        image_prompt_key = nn.Parameter(torch.zeros(key_shape))
+        combine_prompt_key = nn.Parameter(torch.zeros(key_shape))
+        nn.init.uniform_(text_prompt_key, -1, 1)
+        nn.init.uniform_(image_prompt_key, -1, 1)
+        nn.init.uniform_(combine_prompt_key, -1, 1)
+
+        self.image_prompts['key'].append(image_prompt_key)
+        self.text_prompts['key'].append(text_prompt_key)
+        self.combine_prompts['key'].append(combine_prompt_key)
+
     def l2_normalize(self, x, dim=None, epsilon=1e-12):
         """Normalizes a given vector or matrix."""
         square_sum = torch.sum(x ** 2, dim=dim, keepdim=True)
         x_inv_norm = torch.rsqrt(torch.maximum(square_sum, torch.tensor(epsilon, device=x.device)))
         return x * x_inv_norm
     
-    def forward(self, x_embed, prompt_mask=None, cls_features=None, t_or_i=0):
+    def forward(self, x_embed, prompt_mask=None, cls_features=None, t_or_i=0, task_id=-1):
         # t_or_i: 0 is text, 1 is image, 2 is combine
         prompt_key = None
         prompt = None
         if t_or_i == 0:
-            prompt = self.text_prompt
-            prompt_key = self.text_prompt_key
+            #prompt = self.text_prompt
+            #prompt_key = self.text_prompt_key
+            prompt = self.text_prompts['prompt'][task_id]
+            prompt_key = self.text_prompts['key'][task_id]
         elif t_or_i == 1:
-            prompt = self.image_prompt
-            prompt_key = self.image_prompt_key
+            #prompt = self.image_prompt
+            #prompt_key = self.image_prompt_key
+            prompt = self.image_prompts['prompt'][task_id]
+            prompt_key = self.image_prompts['key'][task_id]
         elif t_or_i == 2:
-            prompt = self.combine_prompt
-            prompt_key = self.combine_prompt_key
+            #prompt = self.combine_prompt
+            #prompt_key = self.combine_prompt_key
+            prompt = self.combine_prompts['prompt'][task_id]
+            prompt_key = self.combine_prompts['key'][task_id]
 
         out = dict()
         if self.prompt_pool:
@@ -94,7 +144,7 @@ class Prompt(nn.Module):
             else:
                 raise NotImplementedError("Not supported way of calculating embedding keys!")
 
-            prompt_norm = self.l2_normalize(prompt_key, dim=1) # Pool_size, C
+            prompt_norm = self.l2_normalize(prompt_key, dim=1).to("cuda:0") # Pool_size, C
             x_embed_norm = self.l2_normalize(x_embed_mean, dim=1) # B, C
 
             similarity = torch.matmul(x_embed_norm, prompt_norm.t()) # B, Pool_size
@@ -115,7 +165,7 @@ class Prompt(nn.Module):
                     idx = major_prompt_id.expand(x_embed.shape[0], -1) # B, top_k
             else:
                 idx = prompt_mask # B, top_k
-
+            prompt = prompt.to("cuda:0")
             batched_prompt_raw = prompt[idx] # B, top_k, length, C
             batch_size, top_k, length, c = batched_prompt_raw.shape
             batched_prompt = batched_prompt_raw.reshape(batch_size, top_k * length, c) # B, top_k * length, C

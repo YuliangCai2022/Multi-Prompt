@@ -166,7 +166,7 @@ def main():
 
     '''**************************************************** load CL vilt model ****************************************************'''
     model_config = model_configs[args.encoder_name]
-    experiment_name = '{}-{}_coco_snli_gqa_nlvr_okvqa_freeze_6_TAM_CL_prompt_recon_1'.format(args.encoder_name, args.cl_algorithm)
+    experiment_name = '{}-{}_coco_snli_gqa_nlvr_okvqa_freeze_6_for_FT'.format(args.encoder_name, args.cl_algorithm)
     #experiment_name = 'b_snli_nlvr_coco_path_smallepoch_MKTox_test'
 
     logger.info("the experiment name is" + experiment_name)
@@ -237,7 +237,23 @@ def main():
         num_task = 0
         finetune = False
         for task_num, task_key in enumerate(args.ordered_cl_tasks):
-
+            if task_num != 0 and args.prompt==1:
+                model.prompt.update_pool()
+                for key_idx in range(len(model.prompt.text_prompts['key'])):
+                    if key_idx != task_num:
+                        model.prompt.text_prompts['key'][key_idx].requires_grad = False
+                        model.prompt.text_prompts['prompt'][key_idx].requires_grad = False
+                        model.prompt.image_prompts['prompt'][key_idx].requires_grad = False
+                        model.prompt.image_prompts['key'][key_idx].requires_grad = False
+                        model.prompt.combine_prompts['prompt'][key_idx].requires_grad = False
+                        model.prompt.combine_prompts['key'][key_idx].requires_grad = False
+                    else:
+                        model.prompt.text_prompts['key'][key_idx].requires_grad = True
+                        model.prompt.text_prompts['prompt'][key_idx].requires_grad = True
+                        model.prompt.image_prompts['prompt'][key_idx].requires_grad = True
+                        model.prompt.image_prompts['key'][key_idx].requires_grad = True
+                        model.prompt.combine_prompts['prompt'][key_idx].requires_grad = True
+                        model.prompt.combine_prompts['key'][key_idx].requires_grad = True
             # under construction
             if args.dytox:
                 model = update_dytox(model, num_task, args, teacher_model = teacher_model)

@@ -31,6 +31,6 @@ python -m run --encoder_name vilt \
                         --adapter 0 \
                         --adapter_config_file /project/rostamim_919/caiyulia/Multi-Dytox/src/Vanilla_Houlsby.yaml \
                         --device cuda:0 \
-                        --prompt 1 \
+                        --prompt 0 \
                         --freeze_num 6 \
                         #--do_wandb_logging
